@@ -55,7 +55,6 @@ device: duckdb ## iOS Hardware Build
 	-DCMAKE_BUILD_TYPE=Release ../.. && \
 	cmake --build . --target duckdb_framework
 	@cp $(DUCKDB_DIR)/src/include/duckdb.h $(DUCKDB_DIR)/build/release/src/duckdb.framework/Headers
-	@rm -rf $(LIB_DIR)/duckdb.framework
 	@mv $(DUCKDB_DIR)/build/release/src/duckdb.framework $(LIB_DIR)/duckdb.framework
 	@echo "iOS Device Build Complete"
 
