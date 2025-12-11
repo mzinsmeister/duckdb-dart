@@ -1,5 +1,5 @@
 # Variables
-VERSION = v1.4.4
+VERSION = v1.4.3
 DUCKDB_REPO = https://github.com/duckdb/duckdb
 DUCKDB_DIR = duckdb
 BUILD_DIR = $(DUCKDB_DIR)/build
@@ -46,7 +46,7 @@ CMAKE_VARS_BUILD = -DBUILD_UNITTESTS=0 \
 all: reset release ## Full Build
 
 reset: ## Reset build environment
-    rm -rf $(LIB_DIR) $(DUCKDB_DIR)
+	rm -rf $(LIB_DIR) $(DUCKDB_DIR)
 
 ## Clean duckdb build
 clean:
@@ -56,38 +56,38 @@ duckdb: ## Shallow clone DuckDb repo and checkout specific commit
 	git clone --depth 1 --branch "$(VERSION)" $(DUCKDB_REPO) $(DUCKDB_DIR)
 
 build_%: duckdb
-    @echo "Building for ABI: $*"
-    @mkdir -p $(BUILD_DIR)/extension_configuration
-    @cd $(BUILD_DIR)/extension_configuration && \
+	@echo "Building for ABI: $*"
+	@mkdir -p $(BUILD_DIR)/extension_configuration
+	@cd $(BUILD_DIR)/extension_configuration && \
 		ANDROID_ABI=$* \
-        cmake $(CMAKE_GENERATOR) \
-        -DEXTENSION_CONFIG_BUILD=TRUE \
-        -DCMAKE_BUILD_TYPE=MinSizeRel \
-        -DANDROID_ABI=$* \
-        ../.. && \
-        cmake --build . --config MinSizeRel
-    @mkdir -p $(BUILD_DIR)
-    @cd $(BUILD_DIR) && \
-        cmake $(CMAKE_GENERATOR) \
-        -DANDROID_ABI=$* \
-        -DDUCKDB_EXPLICIT_PLATFORM='android_$*' \
-        -DCMAKE_BUILD_TYPE=Release \
-        -DBUILD_EXTENSIONS=$(EXTENSIONS) \
-        -DENABLE_EXTENSION_AUTOLOADING=$(ENABLE_EXTENSION_AUTOLOADING) \
-        -DENABLE_EXTENSION_AUTOINSTALL=$(ENABLE_EXTENSION_AUTOINSTALL) \
-        -DEXTENSION_STATIC_BUILD=$(EXTENSION_STATIC_BUILD) \
-        $(CMAKE_VARS_BUILD) \
-        ../ && \
-        cmake --build . --config Release --parallel
-    @${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/$(HOST_PLATFORM)/bin/llvm-strip --strip-debug $(BUILD_DIR)/src/libduckdb.so
-    @mkdir -p $(LIB_DIR)/$*
-    @cp $(BUILD_DIR)/src/libduckdb.so $(LIB_DIR)/$*/libduckdb.so
-    @echo "Finished build for $*"
+		cmake $(CMAKE_GENERATOR) \
+		-DEXTENSION_CONFIG_BUILD=TRUE \
+		-DCMAKE_BUILD_TYPE=MinSizeRel \
+		-DANDROID_ABI=$* \
+		../.. && \
+		cmake --build . --config MinSizeRel
+	@mkdir -p $(BUILD_DIR)
+	@cd $(BUILD_DIR) && \
+		cmake $(CMAKE_GENERATOR) \
+		-DANDROID_ABI=$* \
+		-DDUCKDB_EXPLICIT_PLATFORM='android_$*' \
+		-DCMAKE_BUILD_TYPE=Release \
+		-DBUILD_EXTENSIONS=$(EXTENSIONS) \
+		-DENABLE_EXTENSION_AUTOLOADING=$(ENABLE_EXTENSION_AUTOLOADING) \
+		-DENABLE_EXTENSION_AUTOINSTALL=$(ENABLE_EXTENSION_AUTOINSTALL) \
+		-DEXTENSION_STATIC_BUILD=$(EXTENSION_STATIC_BUILD) \
+		$(CMAKE_VARS_BUILD) \
+		../ && \
+		cmake --build . --config Release --parallel
+	@${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/$(HOST_PLATFORM)/bin/llvm-strip --strip-debug $(BUILD_DIR)/src/libduckdb.so
+	@mkdir -p $(LIB_DIR)/$*
+	@cp $(BUILD_DIR)/src/libduckdb.so $(LIB_DIR)/$*/libduckdb.so
+	@echo "Finished build for $*"
 
 # Added build_x86_64 for Emulators. 
 # We clean between builds to ensure CMake doesn't cache arch-specific variables.
 release: build_arm64-v8a clean build_armeabi-v7a clean build_x86_64 ## Build for arm64, armv7, and x86_64
-    echo "Android Release Build Complete"
+	echo "Android Release Build Complete"
 
 help: ## Display this help message
-    @grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
