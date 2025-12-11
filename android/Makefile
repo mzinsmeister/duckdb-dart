@@ -1,10 +1,13 @@
 # Variables
-VERSION = v1.4.2
+VERSION = v1.4.4
 DUCKDB_REPO = https://github.com/duckdb/duckdb
 DUCKDB_DIR = duckdb
 BUILD_DIR = $(DUCKDB_DIR)/build
 LIB_DIR = src/main/jniLibs/
-EXTENSIONS = 'icu;parquet;json;autocomplete'
+
+# Added fts (Full Text Search) and inet (IP addresses). 
+# Note: httpfs is omitted as it requires OpenSSL.
+EXTENSIONS = 'core_functions;icu;parquet;json;autocomplete;fts;inet'
 
 ifndef ANDROID_NDK_HOME
 # https://developer.android.com/studio
@@ -23,10 +26,13 @@ endif
 NINJA := $(shell which ninja)
 CMAKE_GENERATOR := $(if $(NINJA),-G Ninja,)
 
-# Add these new variables
-ENABLE_EXTENSION_AUTOLOADING = 1
-ENABLE_EXTENSION_AUTOINSTALL = 1
+# --- CONFIGURATION CHANGES ---
+# We disable autoloading/autoinstall because we are building a STATIC binary.
+# This prevents the app from trying to download extensions at runtime and crashing.
+ENABLE_EXTENSION_AUTOLOADING = 0
+ENABLE_EXTENSION_AUTOINSTALL = 0
 EXTENSION_STATIC_BUILD = 1
+
 CMAKE_VARS_BUILD = -DBUILD_UNITTESTS=0 \
     -DBUILD_SHELL=0 \
     -DCMAKE_TOOLCHAIN_FILE='${ANDROID_NDK_HOME}/build/cmake/android.toolchain.cmake' \
@@ -40,7 +46,7 @@ CMAKE_VARS_BUILD = -DBUILD_UNITTESTS=0 \
 all: reset release ## Full Build
 
 reset: ## Reset build environment
-	rm -rf $(LIB_DIR) $(DUCKDB_DIR)
+    rm -rf $(LIB_DIR) $(DUCKDB_DIR)
 
 ## Clean duckdb build
 clean:
@@ -50,35 +56,38 @@ duckdb: ## Shallow clone DuckDb repo and checkout specific commit
 	git clone --depth 1 --branch "$(VERSION)" $(DUCKDB_REPO) $(DUCKDB_DIR)
 
 build_%: duckdb
-	@mkdir -p $(BUILD_DIR)/extension_configuration
-	@cd $(BUILD_DIR)/extension_configuration && \
+    @echo "Building for ABI: $*"
+    @mkdir -p $(BUILD_DIR)/extension_configuration
+    @cd $(BUILD_DIR)/extension_configuration && \
 		ANDROID_ABI=$* \
-		cmake $(CMAKE_GENERATOR) \
-		-DEXTENSION_CONFIG_BUILD=TRUE \
-		-DCMAKE_BUILD_TYPE=MinSizeRel \
-		-DANDROID_ABI=$* \
-		../.. && \
-		cmake --build . --config MinSizeRel
-	@mkdir -p $(BUILD_DIR)
-	@cd $(BUILD_DIR) && \
-		ANDROID_ABI=$* \
-		cmake $(CMAKE_GENERATOR) \
-		-DANDROID_ABI=$* \
-		-DDUCKDB_EXPLICIT_PLATFORM='android_$*' \
-		-DCMAKE_BUILD_TYPE=Release \
-		-DBUILD_EXTENSIONS=$(EXTENSIONS) \
-		-DENABLE_EXTENSION_AUTOLOADING=$(ENABLE_EXTENSION_AUTOLOADING) \
-		-DENABLE_EXTENSION_AUTOINSTALL=$(ENABLE_EXTENSION_AUTOINSTALL) \
-		-DEXTENSION_STATIC_BUILD=$(EXTENSION_STATIC_BUILD) \
-		$(CMAKE_VARS_BUILD) \
-		../ && \
-		cmake --build . --config Release --parallel
-	@${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/$(HOST_PLATFORM)/bin/llvm-strip --strip-debug $(BUILD_DIR)/src/libduckdb.so
-	@mkdir -p $(LIB_DIR)/$*
-	@cp $(BUILD_DIR)/src/libduckdb.so $(LIB_DIR)/$*/libduckdb.so;
+        cmake $(CMAKE_GENERATOR) \
+        -DEXTENSION_CONFIG_BUILD=TRUE \
+        -DCMAKE_BUILD_TYPE=MinSizeRel \
+        -DANDROID_ABI=$* \
+        ../.. && \
+        cmake --build . --config MinSizeRel
+    @mkdir -p $(BUILD_DIR)
+    @cd $(BUILD_DIR) && \
+        cmake $(CMAKE_GENERATOR) \
+        -DANDROID_ABI=$* \
+        -DDUCKDB_EXPLICIT_PLATFORM='android_$*' \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DBUILD_EXTENSIONS=$(EXTENSIONS) \
+        -DENABLE_EXTENSION_AUTOLOADING=$(ENABLE_EXTENSION_AUTOLOADING) \
+        -DENABLE_EXTENSION_AUTOINSTALL=$(ENABLE_EXTENSION_AUTOINSTALL) \
+        -DEXTENSION_STATIC_BUILD=$(EXTENSION_STATIC_BUILD) \
+        $(CMAKE_VARS_BUILD) \
+        ../ && \
+        cmake --build . --config Release --parallel
+    @${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/$(HOST_PLATFORM)/bin/llvm-strip --strip-debug $(BUILD_DIR)/src/libduckdb.so
+    @mkdir -p $(LIB_DIR)/$*
+    @cp $(BUILD_DIR)/src/libduckdb.so $(LIB_DIR)/$*/libduckdb.so
+    @echo "Finished build for $*"
 
-release: build_arm64-v8a clean build_armeabi-v7a ## Build for each ABI
-	echo "Android Release Build Complete"
+# Added build_x86_64 for Emulators. 
+# We clean between builds to ensure CMake doesn't cache arch-specific variables.
+release: build_arm64-v8a clean build_armeabi-v7a clean build_x86_64 ## Build for arm64, armv7, and x86_64
+    echo "Android Release Build Complete"
 
 help: ## Display this help message
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
+    @grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
