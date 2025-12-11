@@ -82,6 +82,7 @@ build_%: duckdb
 	@${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/$(HOST_PLATFORM)/bin/llvm-strip --strip-debug $(BUILD_DIR)/src/libduckdb.so
 	@mkdir -p $(LIB_DIR)/$*
 	@cp $(BUILD_DIR)/src/libduckdb.so $(LIB_DIR)/$*/libduckdb.so
+	@zip -j libduckdb-android_$*.zip $(LIB_DIR)/$*/libduckdb.so
 	@echo "Finished build for $*"
 
 # Added build_x86_64 for Emulators. 
