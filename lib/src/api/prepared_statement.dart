@@ -36,6 +36,12 @@ import 'package:dart_duckdb/dart_duckdb.dart';
 ///   ResultSet result = connection.query("SELECT * FROM t1;");
 /// ```
 abstract class PreparedStatement {
+  /// The type of statement this prepared statement will execute.
+  ///
+  /// Available before execution, so it can be used to reject statements that
+  /// are not read-only. See [StatementType.isReadOnly].
+  StatementType get statementType;
+
   /// Returns the amount of parameters in this prepared statement.
   int get parameterCount;
 

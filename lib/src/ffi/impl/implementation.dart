@@ -15,6 +15,7 @@ import 'package:dart_duckdb/src/api/database_type.dart';
 import 'package:dart_duckdb/src/api/exception.dart';
 import 'package:dart_duckdb/src/api/prepared_statement.dart';
 import 'package:dart_duckdb/src/api/result_set.dart';
+import 'package:dart_duckdb/src/api/statement_type.dart';
 import 'package:dart_duckdb/src/ffi/duckdb.g.dart';
 import 'package:dart_duckdb/src/ffi/duckdb_ffi.dart';
 import 'package:dart_duckdb/src/ffi/impl/finalizer.dart';

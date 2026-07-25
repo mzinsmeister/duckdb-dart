@@ -18,6 +18,67 @@ class _FinalizablePreparedStatement extends FinalizablePart {
   }
 }
 
+StatementType _mapStatementType(duckdb_statement_type type) {
+  switch (type) {
+    case duckdb_statement_type.DUCKDB_STATEMENT_TYPE_SELECT:
+      return StatementType.select;
+    case duckdb_statement_type.DUCKDB_STATEMENT_TYPE_INSERT:
+      return StatementType.insert;
+    case duckdb_statement_type.DUCKDB_STATEMENT_TYPE_UPDATE:
+      return StatementType.update;
+    case duckdb_statement_type.DUCKDB_STATEMENT_TYPE_EXPLAIN:
+      return StatementType.explain;
+    case duckdb_statement_type.DUCKDB_STATEMENT_TYPE_DELETE:
+      return StatementType.delete;
+    case duckdb_statement_type.DUCKDB_STATEMENT_TYPE_PREPARE:
+      return StatementType.prepare;
+    case duckdb_statement_type.DUCKDB_STATEMENT_TYPE_EXECUTE:
+      return StatementType.execute;
+    case duckdb_statement_type.DUCKDB_STATEMENT_TYPE_ALTER:
+      return StatementType.alter;
+    case duckdb_statement_type.DUCKDB_STATEMENT_TYPE_TRANSACTION:
+      return StatementType.transaction;
+    case duckdb_statement_type.DUCKDB_STATEMENT_TYPE_COPY:
+      return StatementType.copy;
+    case duckdb_statement_type.DUCKDB_STATEMENT_TYPE_ANALYZE:
+      return StatementType.analyze;
+    case duckdb_statement_type.DUCKDB_STATEMENT_TYPE_VARIABLE_SET:
+      return StatementType.variableSet;
+    case duckdb_statement_type.DUCKDB_STATEMENT_TYPE_CREATE:
+      return StatementType.create;
+    case duckdb_statement_type.DUCKDB_STATEMENT_TYPE_CREATE_FUNC:
+      return StatementType.createFunc;
+    case duckdb_statement_type.DUCKDB_STATEMENT_TYPE_DROP:
+      return StatementType.drop;
+    case duckdb_statement_type.DUCKDB_STATEMENT_TYPE_EXPORT:
+      return StatementType.export;
+    case duckdb_statement_type.DUCKDB_STATEMENT_TYPE_PRAGMA:
+      return StatementType.pragma;
+    case duckdb_statement_type.DUCKDB_STATEMENT_TYPE_VACUUM:
+      return StatementType.vacuum;
+    case duckdb_statement_type.DUCKDB_STATEMENT_TYPE_CALL:
+      return StatementType.call;
+    case duckdb_statement_type.DUCKDB_STATEMENT_TYPE_SET:
+      return StatementType.set;
+    case duckdb_statement_type.DUCKDB_STATEMENT_TYPE_LOAD:
+      return StatementType.load;
+    case duckdb_statement_type.DUCKDB_STATEMENT_TYPE_RELATION:
+      return StatementType.relation;
+    case duckdb_statement_type.DUCKDB_STATEMENT_TYPE_EXTENSION:
+      return StatementType.extension;
+    case duckdb_statement_type.DUCKDB_STATEMENT_TYPE_LOGICAL_PLAN:
+      return StatementType.logicalPlan;
+    case duckdb_statement_type.DUCKDB_STATEMENT_TYPE_ATTACH:
+      return StatementType.attach;
+    case duckdb_statement_type.DUCKDB_STATEMENT_TYPE_DETACH:
+      return StatementType.detach;
+    case duckdb_statement_type.DUCKDB_STATEMENT_TYPE_MULTI:
+      return StatementType.multi;
+    case duckdb_statement_type.DUCKDB_STATEMENT_TYPE_INVALID:
+      return StatementType.invalid;
+  }
+}
+
 class PreparedStatementImpl extends PreparedStatement
     with DatabaseOperationCancellation {
   final Bindings _bindings;
@@ -90,6 +151,11 @@ class PreparedStatementImpl extends PreparedStatement
 
     _finalizable.dispose();
   }
+
+  @override
+  StatementType get statementType => _mapStatementType(
+        _bindings.duckdb_prepared_statement_type(_handle.value),
+      );
 
   @override
   int get parameterCount =>

@@ -8,6 +8,10 @@ class PreparedStatementImpl extends PreparedStatement {
       : _statement = statement;
 
   @override
+  StatementType get statementType =>
+      throw UnsupportedError('statementType is not supported on web');
+
+  @override
   void bind(Object? param, int index) {
     if (index <= 0) {
       throw RangeError.value(index, 'index', 'Index must be greater than 0');
