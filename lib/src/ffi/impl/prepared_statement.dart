@@ -74,6 +74,12 @@ StatementType _mapStatementType(duckdb_statement_type type) {
       return StatementType.detach;
     case duckdb_statement_type.DUCKDB_STATEMENT_TYPE_MULTI:
       return StatementType.multi;
+    case duckdb_statement_type.DUCKDB_STATEMENT_TYPE_COPY_DATABASE:
+      return StatementType.copyDatabase;
+    case duckdb_statement_type.DUCKDB_STATEMENT_TYPE_UPDATE_EXTENSIONS:
+      return StatementType.updateExtensions;
+    case duckdb_statement_type.DUCKDB_STATEMENT_TYPE_MERGE_INTO:
+      return StatementType.mergeInto;
     case duckdb_statement_type.DUCKDB_STATEMENT_TYPE_INVALID:
       return StatementType.invalid;
   }

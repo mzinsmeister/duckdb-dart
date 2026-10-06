@@ -266,6 +266,17 @@ Time timeTransformer(
       (dataPtr.cast<Int64>() + offsetIndex).value,
     );
 
+Time timeNSTransformer(
+  Bindings bindings,
+  Pointer dataPtr,
+  int offsetIndex,
+  duckdb_vector handle,
+  LogicalType logicalType,
+) =>
+    Time.fromMicrosecondsSinceEpoch(
+      (dataPtr.cast<Int64>() + offsetIndex).value ~/ 1000,
+    );
+
 TimeWithOffset timeTzTransformer(
   Bindings bindings,
   Pointer dataPtr,
@@ -373,6 +384,32 @@ Uint8List blobTransformer(
   }
 }
 
+// BIGNUMs are stored as a blob: a 3 byte header followed by the big-endian
+// magnitude. The header's most significant bit is set for positive numbers.
+// For negative numbers both header and magnitude are bitwise inverted.
+BigInt bigNumTransformer(
+  Bindings bindings,
+  Pointer dataPtr,
+  int offsetIndex,
+  duckdb_vector handle,
+  LogicalType logicalType,
+) {
+  final bytes = blobTransformer(
+    bindings,
+    dataPtr,
+    offsetIndex,
+    handle,
+    logicalType,
+  );
+  final isNegative = (bytes[0] & 0x80) == 0;
+  var result = BigInt.zero;
+  for (var i = 3; i < bytes.length; i++) {
+    final byte = isNegative ? ~bytes[i] & 0xFF : bytes[i];
+    result = (result << 8) | BigInt.from(byte);
+  }
+  return isNegative ? -result : result;
+}
+
 UuidValue uuidTransformer(
   Bindings bindings,
   Pointer dataPtr,
@@ -419,9 +456,12 @@ VectorTransformer<T?> getTransformerForType<T>(DatabaseTypeNative dbType) {
     DatabaseTypeNative.timestampTz => timestampTzTransformer,
     DatabaseTypeNative.date => dateTransformer,
     DatabaseTypeNative.time => timeTransformer,
+    DatabaseTypeNative.timeNS => timeNSTransformer,
     DatabaseTypeNative.timeTz => timeTzTransformer,
     DatabaseTypeNative.interval => intervalTransformer,
     DatabaseTypeNative.blob => blobTransformer,
+    DatabaseTypeNative.geometry => blobTransformer,
+    DatabaseTypeNative.bigNum => bigNumTransformer,
     DatabaseTypeNative.uuid => uuidTransformer,
     DatabaseTypeNative.array => arrayTransformer<Object?>,
     DatabaseTypeNative.list => listTransformer<Object?>,

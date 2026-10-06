@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.5.6
+
+- Upgrade DuckDB binaries to 1.5.6 and regenerate the FFI bindings
+- Support the BIGNUM (returned as `BigInt`), TIME_NS and GEOMETRY (returned as WKB bytes) types
+- Rename `DatabaseTypeNative.varInt` to `bigNum`, following DuckDB's rename of VARINT to BIGNUM
+- Add the `copyDatabase`, `updateExtensions` and `mergeInto` statement types
+- Add a GitHub workflow that builds and releases the Android and iOS binaries
+
 ## 1.4.4
 
 - upgrade duckdb binaries to 1.4.2

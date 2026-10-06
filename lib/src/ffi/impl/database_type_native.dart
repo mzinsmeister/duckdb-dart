@@ -43,7 +43,17 @@ enum DatabaseTypeNative implements DatabaseType {
   uHugeInt(DUCKDB_TYPE.DUCKDB_TYPE_UHUGEINT, BigInt),
   array(DUCKDB_TYPE.DUCKDB_TYPE_ARRAY, null),
   any(DUCKDB_TYPE.DUCKDB_TYPE_ANY, null),
-  varInt(DUCKDB_TYPE.DUCKDB_TYPE_VARINT, null);
+  bigNum(DUCKDB_TYPE.DUCKDB_TYPE_BIGNUM, BigInt),
+  sqlNull(DUCKDB_TYPE.DUCKDB_TYPE_SQLNULL, null),
+  stringLiteral(DUCKDB_TYPE.DUCKDB_TYPE_STRING_LITERAL, null),
+  integerLiteral(DUCKDB_TYPE.DUCKDB_TYPE_INTEGER_LITERAL, null),
+  timeNS(DUCKDB_TYPE.DUCKDB_TYPE_TIME_NS, null),
+  geometry(DUCKDB_TYPE.DUCKDB_TYPE_GEOMETRY, Uint8List),
+  variant(DUCKDB_TYPE.DUCKDB_TYPE_VARIANT, null);
+
+  /// DuckDB renamed VARINT to BIGNUM in v1.4.
+  @Deprecated('Use DatabaseTypeNative.bigNum')
+  static const varInt = bigNum;
 
   final DUCKDB_TYPE _value;
 
@@ -80,6 +90,7 @@ enum DatabaseTypeNative implements DatabaseType {
       this == uInteger ||
       this == uHugeInt ||
       this == hugeInt ||
+      this == bigNum ||
       this == uBigInt ||
       this == tinyInt ||
       this == smallInt ||

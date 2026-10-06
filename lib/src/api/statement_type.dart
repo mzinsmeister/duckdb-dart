@@ -30,7 +30,10 @@ enum StatementType {
   logicalPlan,
   attach,
   detach,
-  multi;
+  multi,
+  copyDatabase,
+  updateExtensions,
+  mergeInto;
 
   /// Whether a statement of this type is safe to run in a read-only context,
   /// matching PostgreSQL's `READ ONLY` transaction semantics: it may not modify

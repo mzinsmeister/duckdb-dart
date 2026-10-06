@@ -1,0 +1,182 @@
+# Versions the library with tags and publishes the DuckDB binaries that are not
+# available from the official DuckDB releases (Android .so files and the iOS
+# framework) as GitHub releases.
+#
+# On every push to main (or manual run):
+#   - If the binary build inputs (BUILD_INPUTS) changed since the latest
+#     release, the binaries are built and published as a new release.
+#   - Otherwise, if the library changed since the latest tag (anything except
+#     LIBRARY_EXCLUDES), only a new tag is pushed.
+#   - Otherwise nothing happens.
+#
+# Tags are the DuckDB version from android/Makefile (e.g. v1.5.6). If that tag
+# already exists, a build number is appended: v1.5.6+2, v1.5.6+3, ...
+name: Release
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+env:
+  BUILD_INPUTS: >-
+    android/Makefile
+    ios/Makefile
+    ios/changes.patch
+    ios/ios.toolchain.cmake
+    .github/workflows/release-native.yml
+  LIBRARY_EXCLUDES: >-
+    :!test
+    :!examples
+    :!tools
+    :!.github
+    :!*.md
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
+      build: ${{ steps.version.outputs.build }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - id: version
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          read -ra build_inputs <<< "$BUILD_INPUTS"
+          read -ra library_excludes <<< "$LIBRARY_EXCLUDES"
+
+          last_release=$(gh release list --exclude-drafts --limit 1 --json tagName --jq '.[0].tagName')
+          last_tag=$(git describe --tags --abbrev=0 --match 'v*' HEAD 2>/dev/null || true)
+
+          if [ -z "$last_release" ] || ! git diff --quiet "refs/tags/$last_release" HEAD -- "${build_inputs[@]}"; then
+            build=true
+          elif [ -z "$last_tag" ] || ! git diff --quiet "refs/tags/$last_tag" HEAD -- . "${library_excludes[@]}"; then
+            build=false
+          else
+            echo "::notice::Nothing changed since $last_tag"
+            exit 0
+          fi
+
+          base=$(sed -n 's/^VERSION = //p' android/Makefile)
+          ios_base=$(sed -n 's/^VERSION = //p' ios/Makefile)
+          if [ "$base" != "$ios_base" ]; then
+            echo "::error::android/Makefile ($base) and ios/Makefile ($ios_base) use different DuckDB versions"
+            exit 1
+          fi
+
+          # The plain DuckDB version counts as build 1.
+          tags=$(git tag --list)
+          if ! grep -qxF "$base" <<< "$tags"; then
+            tag=$base
+          else
+            number=1
+            while read -r existing; do
+              existing=${existing#"$base+"}
+              if [ "$existing" -gt "$number" ]; then
+                number=$existing
+              fi
+            done < <(grep -E "^${base//./\\.}\+[0-9]+$" <<< "$tags")
+            tag="$base+$((number + 1))"
+          fi
+
+          if [ "$build" = true ]; then
+            echo "::notice::Binaries changed, releasing $tag"
+          else
+            echo "::notice::Library changed, tagging $tag"
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "build=$build" >> "$GITHUB_OUTPUT"
+
+      - name: Tag
+        if: steps.version.outputs.build == 'false'
+        env:
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          git tag "$TAG" "$GITHUB_SHA"
+          git push origin "refs/tags/$TAG"
+
+  android:
+    needs: version
+    if: needs.version.outputs.build == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        abi: [arm64-v8a, armeabi-v7a, x86_64]
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: nttld/setup-ndk@v1
+        id: ndk
+        with:
+          ndk-version: r27c
+          add-to-path: false
+
+      - run: sudo apt-get update && sudo apt-get install -y ninja-build
+
+      - name: Build
+        working-directory: android
+        env:
+          ANDROID_NDK_HOME: ${{ steps.ndk.outputs.ndk-path }}
+        run: make build_${{ matrix.abi }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-${{ matrix.abi }}
+          path: android/libduckdb-android_${{ matrix.abi }}.zip
+          if-no-files-found: error
+
+  ios:
+    needs: version
+    if: needs.version.outputs.build == 'true'
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - run: brew install ninja
+
+      - name: Build
+        working-directory: ios
+        run: make all
+
+      - name: Package
+        working-directory: ios/Libraries/release
+        run: zip -r -y "$GITHUB_WORKSPACE/duckdb-framework-ios.zip" duckdb.framework
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ios
+          path: duckdb-framework-ios.zip
+          if-no-files-found: error
+
+  release:
+    needs: [version, android, ios]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ needs.version.outputs.tag }}
+        run: |
+          ls -la dist
+          gh release create "$TAG" dist/*.zip \
+            --target "$GITHUB_SHA" \
+            --title "DuckDB $TAG" \
+            --notes "Android and iOS builds of [DuckDB ${TAG%%+*}](https://github.com/duckdb/duckdb/releases/tag/${TAG%%+*})."
