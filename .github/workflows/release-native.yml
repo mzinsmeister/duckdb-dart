@@ -2,7 +2,7 @@
 # available from the official DuckDB releases (Android .so files and the iOS
 # framework) as GitHub releases.
 #
-# On every push to main (or manual run):
+# Run manually via "Run workflow":
 #   - If the binary build inputs (BUILD_INPUTS) changed since the latest
 #     release, the binaries are built and published as a new release.
 #   - Otherwise, if the library changed since the latest tag (anything except
@@ -15,8 +15,6 @@ name: Release
 
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
 
 permissions:
   contents: write
